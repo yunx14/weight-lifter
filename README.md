@@ -1,36 +1,137 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lift Tracker
+
+A full-stack web application built with Next.js, Supabase, and React for tracking weight lifting workouts and monitoring fitness progress.
+
+## Features
+
+- Record weight lifting workouts (exercise name, sets, reps, weight, date)
+- View a personalized dashboard with fitness progress over the past 3 months
+- Display total volume lifted over time
+- Track workout frequency
+- Monitor personal records (PRs) for key lifts
+- Detailed exercise progress visualizations
+- Compare performance across previous workouts
+
+## Tech Stack
+
+- **Frontend**: React, Next.js, Tailwind CSS
+- **Backend**: Next.js API Routes, Supabase
+- **Database**: PostgreSQL (via Supabase)
+- **Authentication**: Supabase Auth
+- **Data Visualization**: Chart.js with react-chartjs-2
+- **Form Handling**: React Hook Form with Zod validation
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js (v18 or newer)
+- npm or yarn
+- Supabase account
+
+### Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/lift-tracker.git
+cd lift-tracker
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Create a Supabase project and set up the database schema:
+
+Create the following tables in your Supabase project:
+- users
+- workouts
+- exercises
+- sets
+
+4. Set up environment variables:
+
+Create a `.env.local` file in the project root with the following variables:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+5. Run the development server:
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+lift-tracker/
+├── src/
+│   ├── app/              # Next.js App Router
+│   │   ├── api/          # API routes
+│   │   ├── auth/         # Authentication pages
+│   │   ├── dashboard/    # Dashboard page
+│   │   ├── exercises/    # Exercise pages
+│   │   ├── workouts/     # Workout pages
+│   ├── components/       # Reusable React components
+│   ├── hooks/            # Custom React hooks
+│   ├── lib/              # Library configs
+│   ├── utils/            # Utility functions
+├── public/               # Static assets
+├── .env.local            # Environment variables (create this)
+├── package.json
+├── tailwind.config.js
+└── README.md
+```
 
-## Learn More
+## Database Schema
 
-To learn more about Next.js, take a look at the following resources:
+### users
+- id (primary key)
+- email
+- created_at
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### workouts
+- id (primary key)
+- user_id (foreign key to users.id)
+- date
+- name
+- notes (optional)
+- created_at
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### exercises
+- id (primary key)
+- workout_id (foreign key to workouts.id)
+- name
+- created_at
 
-## Deploy on Vercel
+### sets
+- id (primary key)
+- exercise_id (foreign key to exercises.id)
+- reps
+- weight
+- created_at
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project can be deployed to Vercel with minimal configuration:
+
+1. Push your code to a GitHub repository
+2. Import the project into Vercel
+3. Add your environment variables in the Vercel project settings
+4. Deploy!
+
+## License
+
+MIT
