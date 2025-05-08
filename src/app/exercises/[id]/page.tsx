@@ -6,7 +6,8 @@ import ExerciseProgressChart from '@/components/ExerciseProgressChart';
 import DashboardAuthWrapper from '@/components/DashboardAuthWrapper';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { getAllExercises, getExerciseHistory } from '@/utils/supabase-utils';
+import { supabase } from '@/lib/supabase';
+import { getExerciseHistory } from '@/utils/supabase-utils';
 import { format, parseISO } from 'date-fns';
 
 interface PageProps {
@@ -40,80 +41,77 @@ export default function ExerciseDetailPage({ params }: PageProps) {
   useEffect(() => {
     async function fetchExerciseData() {
       if (!user) return;
-
+      setIsLoading(true);
       try {
-        setIsLoading(true);
-        
-        // Get all exercises to find the one with the matching ID
-        const allExercises = await getAllExercises(user.id);
-        const currentExercise = allExercises.find(ex => ex.id === params.id);
-        
-        if (!currentExercise) {
-          console.error('Exercise not found');
+        // 1. Fetch the exercise row by ID
+        const { data: exerciseRow, error: exerciseError } = await supabase
+          .from('exercises')
+          .select('id, name, workout_id')
+          .eq('id', params.id)
+          .single();
+        if (exerciseError || !exerciseRow) {
+          console.error('Exercise not found', exerciseError);
+          setExercise(null);
           return;
         }
-        
-        // Get exercise history
-        const history = await getExerciseHistory(user.id, currentExercise.name);
-        
-        // Calculate personal best (max weight lifted)
+        const exerciseName = exerciseRow.name;
+        // 2. Get the category
+        const category = getCategoryForExercise(exerciseName);
+        // 3. Fetch history and related exercises in parallel
+        const [history, relatedExercisesRaw] = await Promise.all([
+          getExerciseHistory(user.id, exerciseName),
+          supabase
+            .from('exercises')
+            .select('id, name')
+            .neq('id', params.id)
+            .in('workout_id',
+              (await supabase
+                .from('workouts')
+                .select('id')
+                .eq('user_id', user.id)
+              ).data?.map(w => w.id) || []
+            )
+        ]);
+        // 4. Filter related exercises by category
+        const relatedExercises = (relatedExercisesRaw.data || [])
+          .filter((ex: any) => getCategoryForExercise(ex.name) === category)
+          .slice(0, 3)
+          .map((ex: any) => ({ id: ex.id, name: ex.name }));
+        // 5. Calculate personal best
         let personalBest = { weight: 0, reps: 0, date: '' };
-        
         if (history.length > 0) {
-          // Find the entry with max weight
           personalBest = history.reduce((max, current) => {
-            return current.weight > max.weight ? 
+            return current.weight > max.weight ?
               { weight: current.weight, reps: current.reps, date: current.date } : max;
           }, { weight: 0, reps: 0, date: '' });
         }
-        
-        // Find related exercises (exercises in same category)
-        // For now we'll just return a few other exercises
-        const relatedExercises = allExercises
-          .filter(ex => ex.id !== params.id)
-          .filter(ex => {
-            const lowerName = ex.name.toLowerCase();
-            const lowerCurrentName = currentExercise.name.toLowerCase();
-            
-            // Check if they might be in the same category
-            const currentCategory = getCategoryForExercise(currentExercise.name);
-            const exCategory = getCategoryForExercise(ex.name);
-            
-            return currentCategory === exCategory;
-          })
-          .slice(0, 3)
-          .map(ex => ({ id: ex.id, name: ex.name }));
-        
         setExercise({
-          id: currentExercise.id,
-          name: currentExercise.name,
-          category: getCategoryForExercise(currentExercise.name),
+          id: exerciseRow.id,
+          name: exerciseName,
+          category,
           personalBest,
           history: history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
           relatedExercises
         });
-        
       } catch (error) {
         console.error('Error fetching exercise data:', error);
+        setExercise(null);
       } finally {
         setIsLoading(false);
       }
     }
-    
     fetchExerciseData();
   }, [user, params.id]);
 
   // Helper function to categorize exercises (this would ideally come from the database)
   const getCategoryForExercise = (name: string): string => {
     const lowerName = name.toLowerCase();
-    
     if (lowerName.includes('bench') || lowerName.includes('chest') || lowerName.includes('fly')) return 'Chest';
     if (lowerName.includes('squat') || lowerName.includes('leg') || lowerName.includes('lunge')) return 'Legs';
     if (lowerName.includes('deadlift') || lowerName.includes('row') || lowerName.includes('pull')) return 'Back';
     if (lowerName.includes('shoulder') || lowerName.includes('press') || lowerName.includes('raise')) return 'Shoulders';
     if (lowerName.includes('curl') || lowerName.includes('extension') || lowerName.includes('tricep')) return 'Arms';
     if (lowerName.includes('crunch') || lowerName.includes('sit') || lowerName.includes('ab')) return 'Core';
-    
     return 'Other';
   };
 
@@ -130,12 +128,10 @@ export default function ExerciseDetailPage({ params }: PageProps) {
   // Calculate progress (difference between first and last workout)
   const calculateProgress = (history: any[]) => {
     if (history.length < 2) return { value: 0, percentage: 0 };
-    
     const oldestWeight = history[history.length - 1].weight;
     const latestWeight = history[0].weight;
     const difference = latestWeight - oldestWeight;
     const percentage = oldestWeight > 0 ? Math.round((difference / oldestWeight) * 100) : 0;
-    
     return {
       value: difference,
       percentage
@@ -146,7 +142,6 @@ export default function ExerciseDetailPage({ params }: PageProps) {
     <DashboardAuthWrapper>
       <div className="flex min-h-screen flex-col">
         <Navigation />
-        
         <div className="flex-grow p-6 bg-gray-50">
           <div className="max-w-7xl mx-auto">
             {isLoading ? (
